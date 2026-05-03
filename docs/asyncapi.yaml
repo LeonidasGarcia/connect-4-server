@@ -1,0 +1,189 @@
+asyncapi: 3.1.0
+info:
+  title: Connect 4 Game Server
+  version: 1.0.0
+  description: WebSocket server for Connect 4 multiplayer game
+
+servers:
+  development:
+    host: localhost:3000
+    protocol: socket.io
+    description: Development server
+
+channels:
+  gameRoom:
+    address: /
+    title: Game Room
+    description: Main channel for Connect 4 game communication
+    messages:
+      joinRoom:
+        $ref: '#/components/messages/JoinRoom'
+      makeMove:
+        $ref: '#/components/messages/MakeMove'
+      playerIdAssigned:
+        $ref: '#/components/messages/PlayerIdAssigned'
+      gameStateChanged:
+        $ref: '#/components/messages/GameStateChanged'
+      errorOccurred:
+        $ref: '#/components/messages/ErrorOccurred'
+
+operations:
+  sendJoinRoom:
+    action: send
+    channel:
+      $ref: '#/channels/gameRoom'
+    messages:
+      - $ref: '#/channels/gameRoom/messages/joinRoom'
+
+  sendMakeMove:
+    action: send
+    channel:
+      $ref: '#/channels/gameRoom'
+    messages:
+      - $ref: '#/channels/gameRoom/messages/makeMove'
+
+  receivePlayerIdAssigned:
+    action: receive
+    channel:
+      $ref: '#/channels/gameRoom'
+    messages:
+      - $ref: '#/channels/gameRoom/messages/playerIdAssigned'
+
+  receiveGameStateChanged:
+    action: receive
+    channel:
+      $ref: '#/channels/gameRoom'
+    messages:
+      - $ref: '#/channels/gameRoom/messages/gameStateChanged'
+
+  receiveErrorOccurred:
+    action: receive
+    channel:
+      $ref: '#/channels/gameRoom'
+    messages:
+      - $ref: '#/channels/gameRoom/messages/errorOccurred'
+
+components:
+  messages:
+    JoinRoom:
+      name: joinRoom
+      title: Join Room
+      description: Request to join the game room
+      payload:
+        $ref: '#/components/schemas/JoinRoomPayload'
+
+    MakeMove:
+      name: makeMove
+      title: Make Move
+      description: Make a move by dropping a token in a column
+      payload:
+        $ref: '#/components/schemas/MakeMovePayload'
+
+    PlayerIdAssigned:
+      name: playerIdAssigned
+      title: Player ID Assigned
+      description: Sent when a player connects and receives their unique ID
+      payload:
+        $ref: '#/components/schemas/PlayerIdAssignedPayload'
+
+    GameStateChanged:
+      name: gameStateChanged
+      title: Game State Changed
+      description: Broadcasted when game state updates
+      payload:
+        $ref: '#/components/schemas/GameStateChangedPayload'
+
+    ErrorOccurred:
+      name: errorOccurred
+      title: Error Occurred
+      description: Error notification from server
+      payload:
+        $ref: '#/components/schemas/ErrorOccurredPayload'
+
+  schemas:
+    JoinRoomPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        roomId:
+          type: string
+          description: Room identifier (ignored in single-room mode)
+
+    MakeMovePayload:
+      type: object
+      additionalProperties: false
+      properties:
+        col:
+          type: integer
+          minimum: 0
+          maximum: 6
+          description: Column index where the token should be dropped
+
+    PlayerIdAssignedPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Unique player identifier assigned by the server
+
+    GameStateChangedPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        players:
+          type: array
+          items:
+            $ref: '#/components/schemas/Player'
+          description: List of players in the room (max 2)
+        currentPlayerId:
+          type: string
+          description: ID of the player whose turn it is
+        board:
+          $ref: '#/components/schemas/Board'
+        scores:
+          type: object
+          additionalProperties:
+            type: integer
+          description: Score for each player
+
+    ErrorOccurredPayload:
+      type: object
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+          description: Error message description
+
+    Player:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: string
+          description: Player unique identifier
+        color:
+          type: string
+          description: Player token color in hex format
+        name:
+          type: string
+          description: Player display name
+      required:
+        - id
+        - color
+        - name
+
+    Board:
+      type: array
+      items:
+        type: array
+        items:
+          type: [string, 'null']
+          nullable: true
+      description: 6x7 matrix representing the game board. null = empty cell, string = player ID
+
+  tags:
+    - name: game
+      description: Game-related messages
+    - name: error
+      description: Error messages
