@@ -1,8 +1,8 @@
 asyncapi: 3.1.0
 info:
   title: Connect 4 Game Server
-  version: 1.0.0
-  description: WebSocket server for Connect 4 multiplayer game
+  version: 1.1.0
+  description: WebSocket server for Connect 4 multiplayer game. Single room, max 2 players. Server validates silently (invalid requests are ignored). Player disconnection resets the game.
 
 servers:
   development:
@@ -75,7 +75,7 @@ components:
     MakeMove:
       name: makeMove
       title: Make Move
-      description: Make a move by dropping a token in a column
+      description: Place a token at specific coordinates. Invalid payloads are silently ignored. Turn validation is handled by client.
       payload:
         $ref: '#/components/schemas/MakeMovePayload'
 
@@ -178,12 +178,3 @@ components:
         - id
         - color
         - name
-
-    Board:
-      type: array
-      items:
-        type: array
-        items:
-          type: [string, 'null']
-          nullable: true
-      description: 6x7 matrix representing the game board. null = empty cell, string = player ID
