@@ -117,7 +117,15 @@ components:
           type: integer
           minimum: 0
           maximum: 6
-          description: Column index where the token should be dropped
+          description: Column index where the token is placed
+        row:
+          type: integer
+          minimum: 0
+          maximum: 5
+          description: Row index where the token is placed
+      required:
+        - col
+        - row
 
     PlayerIdAssignedPayload:
       type: object
@@ -139,8 +147,6 @@ components:
         currentPlayerId:
           type: string
           description: ID of the player whose turn it is
-        board:
-          $ref: '#/components/schemas/Board'
         scores:
           type: object
           additionalProperties:

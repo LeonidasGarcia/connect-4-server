@@ -2,23 +2,25 @@ import { Injectable } from '@nestjs/common';
 import {
   GameState,
   Player,
-  Board,
   PLAYER_COLORS,
   PLAYER_NAMES,
-  createEmptyBoard,
   WIN_LENGTH,
+  BOARD_ROWS,
+  BOARD_COLS,
 } from './types/index';
+import { coordToString, stringToCoord } from './utils/coordinates';
 
 @Injectable()
 export class GameService {
   private gameState: GameState = this.createInitialState();
-  private connectedClients: Map<string, string> = new Map();
+  private player1Tokens: Set<string> = new Set();
+  private player2Tokens: Set<string> = new Set();
+  private clientIdToPlayerIndex: Map<string, number> = new Map();
 
   private createInitialState(): GameState {
     return {
       players: [],
       currentPlayerId: '',
-      board: createEmptyBoard(),
       scores: { 'player-1': 0, 'player-2': 0 },
     };
   }
@@ -44,7 +46,7 @@ export class GameService {
     };
 
     this.gameState.players.push(player);
-    this.connectedClients.set(clientId, player.id);
+    this.clientIdToPlayerIndex.set(clientId, playerIndex);
 
     if (this.gameState.players.length === 1) {
       this.gameState.currentPlayerId = player.id;
@@ -54,12 +56,11 @@ export class GameService {
   }
 
   removePlayer(clientId: string): void {
-    const playerIndex = this.gameState.players.findIndex(
-      (p) => p.id === clientId,
-    );
-    if (playerIndex !== -1) {
+    const playerIndex = this.clientIdToPlayerIndex.get(clientId);
+    if (playerIndex !== undefined) {
       this.gameState.players.splice(playerIndex, 1);
-      this.connectedClients.delete(clientId);
+      this.clientIdToPlayerIndex.delete(clientId);
+      this.clearTokens();
       this.resetGame();
     }
   }
@@ -67,33 +68,32 @@ export class GameService {
   makeMove(
     playerId: string,
     col: number,
-  ): { success: boolean; error?: string } {
+    row: number,
+  ): boolean {
     if (this.gameState.players.length < 2) {
-      return { success: false, error: 'Esperando segundo jugador' };
+      return false;
     }
 
-    if (playerId !== this.gameState.currentPlayerId) {
-      return { success: false, error: 'No es tu turno' };
+    const playerIndex = this.gameState.players.findIndex(
+      (p) => p.id === playerId,
+    );
+    if (playerIndex === -1) {
+      return false;
     }
 
-    if (col < 0 || col >= 7) {
-      return { success: false, error: 'Columna inválida' };
+    const tokenSet = playerIndex === 0 ? this.player1Tokens : this.player2Tokens;
+    const coord = coordToString(col, row);
+
+    if (tokenSet.has(coord)) {
+      return false;
     }
 
-    const row = this.getLowestEmptyRow(col);
-    if (row === -1) {
-      return { success: false, error: 'Columna llena' };
-    }
+    tokenSet.add(coord);
 
-    this.gameState.board[row][col] = playerId;
-
-    if (this.checkWin(playerId)) {
-      const playerIndex = this.gameState.players.findIndex(
-        (p) => p.id === playerId,
-      );
+    if (this.checkWin(coord, tokenSet)) {
       const scoreKey = `player-${playerIndex + 1}`;
       this.gameState.scores[scoreKey]++;
-      this.gameState.board = createEmptyBoard();
+      this.clearTokens();
       if (this.gameState.players.length > 0) {
         this.gameState.currentPlayerId = this.gameState.players[0].id;
       }
@@ -101,16 +101,66 @@ export class GameService {
       this.switchTurn();
     }
 
-    return { success: true };
+    return true;
   }
 
-  private getLowestEmptyRow(col: number): number {
-    for (let row = 5; row >= 0; row--) {
-      if (this.gameState.board[row][col] === null) {
-        return row;
+  private checkWin(coord: string, tokens: Set<string>): boolean {
+    const { col, row } = stringToCoord(coord);
+
+    const directions = [
+      { dCol: 1, dRow: 0 },
+      { dCol: 0, dRow: 1 },
+      { dCol: 1, dRow: 1 },
+      { dCol: 1, dRow: -1 },
+    ];
+
+    for (const { dCol, dRow } of directions) {
+      if (this.countConsecutive(col, row, dCol, dRow, tokens) >= WIN_LENGTH) {
+        return true;
       }
     }
-    return -1;
+
+    return false;
+  }
+
+  private countConsecutive(
+    startCol: number,
+    startRow: number,
+    dCol: number,
+    dRow: number,
+    tokens: Set<string>,
+  ): number {
+    let count = 1;
+
+    let col = startCol + dCol;
+    let row = startRow + dRow;
+    while (
+      col >= 0 &&
+      col < BOARD_COLS &&
+      row >= 0 &&
+      row < BOARD_ROWS &&
+      tokens.has(coordToString(col, row))
+    ) {
+      count++;
+      col += dCol;
+      row += dRow;
+    }
+
+    col = startCol - dCol;
+    row = startRow - dRow;
+    while (
+      col >= 0 &&
+      col < BOARD_COLS &&
+      row >= 0 &&
+      row < BOARD_ROWS &&
+      tokens.has(coordToString(col, row))
+    ) {
+      count++;
+      col -= dCol;
+      row -= dRow;
+    }
+
+    return count;
   }
 
   private switchTurn(): void {
@@ -121,43 +171,9 @@ export class GameService {
     this.gameState.currentPlayerId = this.gameState.players[nextIndex].id;
   }
 
-  private checkWin(playerId: string): boolean {
-    const board = this.gameState.board;
-
-    for (let row = 0; row < 6; row++) {
-      for (let col = 0; col < 7; col++) {
-        if (
-          this.checkDirection(board, row, col, 0, 1, playerId) ||
-          this.checkDirection(board, row, col, 1, 0, playerId) ||
-          this.checkDirection(board, row, col, 1, 1, playerId) ||
-          this.checkDirection(board, row, col, 1, -1, playerId)
-        ) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  private checkDirection(
-    board: Board,
-    row: number,
-    col: number,
-    dRow: number,
-    dCol: number,
-    playerId: string,
-  ): boolean {
-    let count = 0;
-    for (let i = 0; i < WIN_LENGTH; i++) {
-      const r = row + i * dRow;
-      const c = col + i * dCol;
-      if (r >= 0 && r < 6 && c >= 0 && c < 7 && board[r][c] === playerId) {
-        count++;
-      } else {
-        break;
-      }
-    }
-    return count >= WIN_LENGTH;
+  private clearTokens(): void {
+    this.player1Tokens.clear();
+    this.player2Tokens.clear();
   }
 
   private resetGame(): void {

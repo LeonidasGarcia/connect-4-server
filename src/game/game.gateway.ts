@@ -5,8 +5,11 @@ import {
   OnGatewayDisconnect,
   SubscribeMessage,
 } from '@nestjs/websockets';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 import { Server, Socket } from 'socket.io';
 import { GameService } from './game.service';
+import { JoinRoomDto, MakeMoveDto } from './dto';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -21,7 +24,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const result = this.gameService.addPlayer(client.id);
 
     if (!result.success || !result.player) {
-      client.emit('errorOccurred', { message: result.error || 'Error desconocido' });
+      client.emit('errorOccurred', {
+        message: result.error || 'Error desconocido',
+      });
       client.disconnect();
       return;
     }
@@ -44,7 +49,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('joinRoom')
-  handleJoinRoom(client: Socket): void {
+  async handleJoinRoom(client: Socket, payload: unknown): Promise<void> {
+    const dto = plainToInstance(JoinRoomDto, payload);
+    const errors = await validate(dto);
+
+    if (errors.length > 0) {
+      return;
+    }
+
     const gameState = this.gameService.getGameState();
     if (gameState.players.length === 2) {
       client.emit('gameStateChanged', gameState);
@@ -52,21 +64,29 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('makeMove')
-  handleMakeMove(client: Socket, payload: { col: number }): void {
+  async handleMakeMove(client: Socket, payload: unknown): Promise<void> {
+    const dto = plainToInstance(MakeMoveDto, payload);
+    const errors = await validate(dto);
+
+    if (errors.length > 0) {
+      return;
+    }
+
     const playerId = this.clientIdToPlayerId.get(client.id);
     if (!playerId) {
-      client.emit('errorOccurred', { message: 'No estás en la sala' });
       return;
     }
 
-    const result = this.gameService.makeMove(playerId, payload.col);
-
-    if (!result.success) {
-      client.emit('errorOccurred', { message: result.error });
+    const gameState = this.gameService.getGameState();
+    if (playerId !== gameState.currentPlayerId) {
       return;
     }
 
-    this.broadcastGameState();
+    const success = this.gameService.makeMove(playerId, dto.col, dto.row);
+
+    if (success) {
+      this.broadcastGameState();
+    }
   }
 
   private broadcastGameState(): void {
