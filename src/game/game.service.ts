@@ -7,7 +7,7 @@ import {
   PLAYER_NAMES,
   createEmptyBoard,
   WIN_LENGTH,
-} from './types';
+} from './types/index';
 
 @Injectable()
 export class GameService {
@@ -27,7 +27,11 @@ export class GameService {
     return this.gameState;
   }
 
-  addPlayer(clientId: string): { success: boolean; player?: Player; error?: string } {
+  addPlayer(clientId: string): {
+    success: boolean;
+    player?: Player;
+    error?: string;
+  } {
     if (this.gameState.players.length >= 2) {
       return { success: false, error: 'Sala llena' };
     }
@@ -50,7 +54,9 @@ export class GameService {
   }
 
   removePlayer(clientId: string): void {
-    const playerIndex = this.gameState.players.findIndex((p) => p.id === clientId);
+    const playerIndex = this.gameState.players.findIndex(
+      (p) => p.id === clientId,
+    );
     if (playerIndex !== -1) {
       this.gameState.players.splice(playerIndex, 1);
       this.connectedClients.delete(clientId);
@@ -58,7 +64,10 @@ export class GameService {
     }
   }
 
-  makeMove(playerId: string, col: number): { success: boolean; error?: string } {
+  makeMove(
+    playerId: string,
+    col: number,
+  ): { success: boolean; error?: string } {
     if (this.gameState.players.length < 2) {
       return { success: false, error: 'Esperando segundo jugador' };
     }
@@ -79,7 +88,9 @@ export class GameService {
     this.gameState.board[row][col] = playerId;
 
     if (this.checkWin(playerId)) {
-      const playerIndex = this.gameState.players.findIndex((p) => p.id === playerId);
+      const playerIndex = this.gameState.players.findIndex(
+        (p) => p.id === playerId,
+      );
       const scoreKey = `player-${playerIndex + 1}`;
       this.gameState.scores[scoreKey]++;
       this.gameState.board = createEmptyBoard();

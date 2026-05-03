@@ -181,9 +181,3 @@ components:
           type: [string, 'null']
           nullable: true
       description: 6x7 matrix representing the game board. null = empty cell, string = player ID
-
-  tags:
-    - name: game
-      description: Game-related messages
-    - name: error
-      description: Error messages
