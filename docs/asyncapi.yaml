@@ -2,7 +2,7 @@ asyncapi: 3.1.0
 info:
   title: Connect 4 Game Server
   version: 1.1.0
-  description: WebSocket server for Connect 4 multiplayer game. Single room, max 2 players. Server validates silently (invalid requests are ignored). Player disconnection resets the game.
+  description: WebSocket server for Connect 4 multiplayer game. Single room, max 2 players. Server validates silently (invalid requests are ignored). The server owns turn validation, gravity, win detection, and scoring. Player disconnection resets the game.
 
 servers:
   development:
@@ -75,7 +75,7 @@ components:
     MakeMove:
       name: makeMove
       title: Make Move
-      description: Place a token at specific coordinates. Invalid payloads are silently ignored. Turn validation is handled by client.
+      description: Place a token in a column. Invalid payloads are silently ignored. The server applies gravity and validates turns.
       payload:
         $ref: '#/components/schemas/MakeMovePayload'
 
@@ -117,15 +117,9 @@ components:
           type: integer
           minimum: 0
           maximum: 6
-          description: Column index where the token is placed
-        row:
-          type: integer
-          minimum: 0
-          maximum: 5
-          description: Row index where the token is placed
+          description: Column index where the token is dropped
       required:
         - col
-        - row
 
     PlayerIdAssignedPayload:
       type: object
@@ -152,6 +146,34 @@ components:
           additionalProperties:
             type: integer
           description: Score for each player
+        tokens:
+          $ref: '#/components/schemas/Tokens'
+          description: Token coordinates grouped by player. Coordinates use the "col,row" format.
+      required:
+        - players
+        - currentPlayerId
+        - scores
+        - tokens
+
+    Tokens:
+      type: object
+      additionalProperties: false
+      properties:
+        player1:
+          type: array
+          items:
+            type: string
+            pattern: '^[0-6],[0-5]$'
+          description: Coordinates occupied by player 1 tokens
+        player2:
+          type: array
+          items:
+            type: string
+            pattern: '^[0-6],[0-5]$'
+          description: Coordinates occupied by player 2 tokens
+      required:
+        - player1
+        - player2
 
     ErrorOccurredPayload:
       type: object

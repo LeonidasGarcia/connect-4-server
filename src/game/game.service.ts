@@ -21,12 +21,18 @@ export class GameService {
     return {
       players: [],
       currentPlayerId: '',
-      scores: { 'player-1': 0, 'player-2': 0 },
+      scores: {},
     };
   }
 
-  getGameState(): GameState {
-    return this.gameState;
+  getGameState(): GameState & { tokens: { player1: string[]; player2: string[] } } {
+    return {
+      ...this.gameState,
+      tokens: {
+        player1: Array.from(this.player1Tokens),
+        player2: Array.from(this.player2Tokens),
+      },
+    };
   }
 
   addPlayer(clientId: string): {
@@ -46,6 +52,7 @@ export class GameService {
     };
 
     this.gameState.players.push(player);
+    this.gameState.scores[player.id] = 0;
     this.clientIdToPlayerIndex.set(clientId, playerIndex);
 
     if (this.gameState.players.length === 1) {
@@ -65,11 +72,11 @@ export class GameService {
     }
   }
 
-  makeMove(
-    playerId: string,
-    col: number,
-    row: number,
-  ): boolean {
+  makeMove(playerId: string, col: number): boolean {
+    if (col < 0 || col >= BOARD_COLS) {
+      return false;
+    }
+
     if (this.gameState.players.length < 2) {
       return false;
     }
@@ -81,27 +88,40 @@ export class GameService {
       return false;
     }
 
-    const tokenSet = playerIndex === 0 ? this.player1Tokens : this.player2Tokens;
-    const coord = coordToString(col, row);
-
-    if (tokenSet.has(coord)) {
+    const row = this.findLowestEmptyRow(col);
+    if (row === -1) {
       return false;
     }
+
+    const tokenSet =
+      playerIndex === 0 ? this.player1Tokens : this.player2Tokens;
+    const coord = coordToString(col, row);
 
     tokenSet.add(coord);
 
     if (this.checkWin(coord, tokenSet)) {
-      const scoreKey = `player-${playerIndex + 1}`;
-      this.gameState.scores[scoreKey]++;
+      this.gameState.scores[playerId] =
+        (this.gameState.scores[playerId] ?? 0) + 1;
       this.clearTokens();
       if (this.gameState.players.length > 0) {
-        this.gameState.currentPlayerId = this.gameState.players[0].id;
+        const nextPlayerIndex = (playerIndex + 1) % this.gameState.players.length;
+        this.gameState.currentPlayerId = this.gameState.players[nextPlayerIndex].id;
       }
     } else {
       this.switchTurn();
     }
 
     return true;
+  }
+
+  private findLowestEmptyRow(col: number): number {
+    for (let row = BOARD_ROWS - 1; row >= 0; row--) {
+      const coord = coordToString(col, row);
+      if (!this.player1Tokens.has(coord) && !this.player2Tokens.has(coord)) {
+        return row;
+      }
+    }
+    return -1;
   }
 
   private checkWin(coord: string, tokens: Set<string>): boolean {

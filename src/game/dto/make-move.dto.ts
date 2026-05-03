@@ -5,9 +5,4 @@ export class MakeMoveDto {
   @Min(0)
   @Max(6)
   col: number;
-
-  @IsInt()
-  @Min(0)
-  @Max(5)
-  row: number;
 }

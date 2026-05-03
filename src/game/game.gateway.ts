@@ -4,12 +4,13 @@ import {
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
+  MessageBody,
+  ConnectedSocket,
 } from '@nestjs/websockets';
-import { plainToInstance } from 'class-transformer';
-import { validate } from 'class-validator';
 import { Server, Socket } from 'socket.io';
 import { GameService } from './game.service';
-import { JoinRoomDto, MakeMoveDto } from './dto';
+import { MakeMoveDto } from './dto';
+import { WebSocketValidationPipe } from './pipes/websocket-validation.pipe';
 
 @WebSocketGateway({ cors: true })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -49,14 +50,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('joinRoom')
-  async handleJoinRoom(client: Socket, payload: unknown): Promise<void> {
-    const dto = plainToInstance(JoinRoomDto, payload);
-    const errors = await validate(dto);
-
-    if (errors.length > 0) {
-      return;
-    }
-
+  handleJoinRoom(@ConnectedSocket() client: Socket): void {
     const gameState = this.gameService.getGameState();
     if (gameState.players.length === 2) {
       client.emit('gameStateChanged', gameState);
@@ -64,14 +58,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('makeMove')
-  async handleMakeMove(client: Socket, payload: unknown): Promise<void> {
-    const dto = plainToInstance(MakeMoveDto, payload);
-    const errors = await validate(dto);
-
-    if (errors.length > 0) {
-      return;
-    }
-
+  handleMakeMove(
+    @ConnectedSocket() client: Socket,
+    @MessageBody(new WebSocketValidationPipe()) dto: MakeMoveDto,
+  ): void {
     const playerId = this.clientIdToPlayerId.get(client.id);
     if (!playerId) {
       return;
@@ -82,7 +72,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       return;
     }
 
-    const success = this.gameService.makeMove(playerId, dto.col, dto.row);
+    const success = this.gameService.makeMove(playerId, dto.col);
 
     if (success) {
       this.broadcastGameState();

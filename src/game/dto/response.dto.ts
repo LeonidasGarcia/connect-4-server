@@ -1,4 +1,4 @@
-import { IsString, IsArray, IsObject, ValidateNested, IsNumber, IsOptional } from 'class-validator';
+import { IsString, IsArray, IsObject, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
 export class PlayerResponseDto {
@@ -12,6 +12,16 @@ export class PlayerResponseDto {
   name: string;
 }
 
+export class TokensResponseDto {
+  @IsArray()
+  @IsString({ each: true })
+  player1: string[];
+
+  @IsArray()
+  @IsString({ each: true })
+  player2: string[];
+}
+
 export class GameStateResponseDto {
   @IsArray()
   @ValidateNested({ each: true })
@@ -23,6 +33,10 @@ export class GameStateResponseDto {
 
   @IsObject()
   scores: Record<string, number>;
+
+  @ValidateNested()
+  @Type(() => TokensResponseDto)
+  tokens: TokensResponseDto;
 }
 
 export class PlayerIdAssignedResponseDto {
