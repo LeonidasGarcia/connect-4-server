@@ -1,15 +1,18 @@
+// Representa a un jugador conectado a la partida.
 export interface Player {
   id: string;
   color: string;
   name: string;
 }
 
+// Estado compartido de la partida que se envia a los clientes.
 export interface GameState {
   players: Player[];
   currentPlayerId: string;
   scores: Record<string, number>;
 }
 
+// Configuracion fija del tablero y datos visuales de los dos jugadores.
 export const PLAYER_COLORS = ['#D54117', '#F7B538'];
 export const PLAYER_NAMES = ['Player 1', 'Player 2'];
 export const BOARD_ROWS = 6;

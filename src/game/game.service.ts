@@ -12,11 +12,13 @@ import { coordToString, stringToCoord } from './utils/coordinates';
 
 @Injectable()
 export class GameService {
+  // Estado principal de la partida y estructuras auxiliares para consultar fichas rapidamente.
   private gameState: GameState = this.createInitialState();
   private player1Tokens: Set<string> = new Set();
   private player2Tokens: Set<string> = new Set();
   private clientIdToPlayerIndex: Map<string, number> = new Map();
 
+  // Crea una partida vacia sin jugadores, sin turno y sin puntuaciones.
   private createInitialState(): GameState {
     return {
       players: [],
@@ -25,6 +27,7 @@ export class GameService {
     };
   }
 
+  // Devuelve el estado visible para el cliente, incluyendo las fichas de ambos jugadores.
   getGameState(): GameState & { tokens: { player1: string[]; player2: string[] } } {
     return {
       ...this.gameState,
@@ -35,6 +38,7 @@ export class GameService {
     };
   }
 
+  // Registra un jugador nuevo si la sala todavia no tiene los dos jugadores permitidos.
   addPlayer(clientId: string): {
     success: boolean;
     player?: Player;
@@ -55,6 +59,7 @@ export class GameService {
     this.gameState.scores[player.id] = 0;
     this.clientIdToPlayerIndex.set(clientId, playerIndex);
 
+    // El primer jugador que entra empieza la partida.
     if (this.gameState.players.length === 1) {
       this.gameState.currentPlayerId = player.id;
     }
@@ -62,6 +67,7 @@ export class GameService {
     return { success: true, player };
   }
 
+  // Elimina al jugador desconectado y reinicia el tablero para evitar partidas incompletas.
   removePlayer(clientId: string): void {
     const playerIndex = this.clientIdToPlayerIndex.get(clientId);
     if (playerIndex !== undefined) {
@@ -72,7 +78,9 @@ export class GameService {
     }
   }
 
+  // Valida y ejecuta una jugada en una columna del tablero.
   makeMove(playerId: string, col: number): boolean {
+    // Rechaza columnas fuera del tablero o jugadas antes de que haya dos jugadores.
     if (col < 0 || col >= BOARD_COLS) {
       return false;
     }
@@ -88,6 +96,7 @@ export class GameService {
       return false;
     }
 
+    // La ficha cae hasta la fila libre mas baja de la columna seleccionada.
     const row = this.findLowestEmptyRow(col);
     if (row === -1) {
       return false;
@@ -99,6 +108,7 @@ export class GameService {
 
     tokenSet.add(coord);
 
+    // Si la jugada forma cuatro en linea, suma punto y limpia el tablero para la siguiente ronda.
     if (this.checkWin(coord, tokenSet)) {
       this.gameState.scores[playerId] =
         (this.gameState.scores[playerId] ?? 0) + 1;
@@ -108,12 +118,14 @@ export class GameService {
         this.gameState.currentPlayerId = this.gameState.players[nextPlayerIndex].id;
       }
     } else {
+      // Si no hay victoria, el turno pasa al otro jugador.
       this.switchTurn();
     }
 
     return true;
   }
 
+  // Busca desde abajo hacia arriba la primera celda libre en una columna.
   private findLowestEmptyRow(col: number): number {
     for (let row = BOARD_ROWS - 1; row >= 0; row--) {
       const coord = coordToString(col, row);
@@ -124,10 +136,12 @@ export class GameService {
     return -1;
   }
 
+  // Comprueba si la ultima ficha conecta cuatro en horizontal, vertical o diagonal.
   private checkWin(coord: string, tokens: Set<string>): boolean {
     const { col, row } = stringToCoord(coord);
 
     const directions = [
+      // Horizontal, vertical y las dos diagonales posibles.
       { dCol: 1, dRow: 0 },
       { dCol: 0, dRow: 1 },
       { dCol: 1, dRow: 1 },
@@ -143,6 +157,7 @@ export class GameService {
     return false;
   }
 
+  // Cuenta fichas consecutivas en ambos sentidos de una direccion a partir de la ultima ficha.
   private countConsecutive(
     startCol: number,
     startRow: number,
@@ -152,6 +167,7 @@ export class GameService {
   ): number {
     let count = 1;
 
+    // Avanza en el sentido positivo de la direccion.
     let col = startCol + dCol;
     let row = startRow + dRow;
     while (
@@ -166,6 +182,7 @@ export class GameService {
       row += dRow;
     }
 
+    // Avanza en el sentido contrario para sumar la linea completa.
     col = startCol - dCol;
     row = startRow - dRow;
     while (
@@ -183,6 +200,7 @@ export class GameService {
     return count;
   }
 
+  // Cambia el turno al siguiente jugador registrado.
   private switchTurn(): void {
     const currentIndex = this.gameState.players.findIndex(
       (p) => p.id === this.gameState.currentPlayerId,
@@ -191,15 +209,18 @@ export class GameService {
     this.gameState.currentPlayerId = this.gameState.players[nextIndex].id;
   }
 
+  // Borra todas las fichas del tablero sin modificar jugadores ni puntuaciones.
   private clearTokens(): void {
     this.player1Tokens.clear();
     this.player2Tokens.clear();
   }
 
+  // Reinicia por completo la partida cuando ya no se puede continuar con los jugadores actuales.
   private resetGame(): void {
     this.gameState = this.createInitialState();
   }
 
+  // Devuelve la posicion del jugador dentro del arreglo de jugadores activos.
   getPlayerIndex(playerId: string): number {
     return this.gameState.players.findIndex((p) => p.id === playerId);
   }

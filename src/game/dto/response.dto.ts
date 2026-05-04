@@ -1,6 +1,7 @@
 import { IsString, IsArray, IsObject, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 
+// Estructura publica de un jugador enviada al cliente.
 export class PlayerResponseDto {
   @IsString()
   id: string;
@@ -12,6 +13,7 @@ export class PlayerResponseDto {
   name: string;
 }
 
+// Fichas colocadas en el tablero, separadas por jugador.
 export class TokensResponseDto {
   @IsArray()
   @IsString({ each: true })
@@ -22,6 +24,7 @@ export class TokensResponseDto {
   player2: string[];
 }
 
+// Estado completo de la partida que se emite por WebSocket.
 export class GameStateResponseDto {
   @IsArray()
   @ValidateNested({ each: true })
@@ -39,11 +42,13 @@ export class GameStateResponseDto {
   tokens: TokensResponseDto;
 }
 
+// Respuesta enviada al cliente cuando el servidor le asigna un jugador.
 export class PlayerIdAssignedResponseDto {
   @IsString()
   id: string;
 }
 
+// Formato comun para errores enviados al cliente.
 export class ErrorResponseDto {
   @IsString()
   message: string;
